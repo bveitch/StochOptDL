@@ -228,9 +228,13 @@ where $\sigma^{[l]}$ denotes the choice of activation function for the $l$-th la
 \end{equation}
 with
 \begin{equation}
-X^{[L]}=\sigma^{[L]}{(Z^{[L])})},
+X^{[L]}=\sigma^{[L]}{(Z^{[L])})},\label{XL_defn}
 \end{equation}
-where $\sigma^{[L]}$ is the softmax function, and $Y$ is the one-hot matrix representation of the multinomial classes. The final loss function is calculated using the `forward propagation' algorithm (Algorithm \ref{alg:fwd}).
+where $\sigma$ is the softmax function, 
+\begin{equation}
+\sigma{(Z_i)}=\frac{\exp{(Z_i)}}{\sum_i \exp{(Z_i)}},\label{softmax}
+\end{equation}
+and $Y$ is the one-hot matrix representation of the multinomial classes. The final loss function is calculated using the `forward propagation' algorithm (Algorithm \ref{alg:fwd}).
 
 %If the $l$-th layer has $n_l$ features (with $n_0=n$) then,
 %\begin{align}
@@ -453,18 +457,22 @@ In section \ref{results_NN} I avoided testing for a full Newton solver even thou
 \label{thm:bigtheorem}
 If sigmoid activations are used at each hidden layer, and
 \begin{equation}
-\sgn{\left(Z_j^{[l](i)}\right)}= \sgn{\left(\nabla \mathcal{L}^{[l](i)}_{Z,j} \right)} \hspace{0.2cm} \forall{i,j},
+\sgn{\left(Z_j^{[l](i)}\right)}= \sgn{\left(\nabla \mathcal{L}^{[l](i)}_{Z,j} \right)} \hspace{0.2cm} \forall{i,j},\label{convex_condition}
 \end{equation}
 then the loss function is convex.
 \end{theorem}
 \begin{proof} 
-A result of the convex optimization literature states that an objective function is convex if and only if its Hessian is positive semi-definite (PSD) \citep[see][page 71]{Boyd:Vanden} . We note from equation \ref{full_Hdefn} that $H^{[l]}$ is PSD if and only if each $H_Z^{[l]}$ is. That $H_Z^{[l]}$ is PSD follows from induction on the number of layers counting backwards from the output layer $L$.
+A result of the convex optimization literature states that an objective function is convex if and only if its Hessian is positive semi-definite (PSD) \citep[see][page 71]{Boyd:Vanden},
+\begin{equation}
+F \hspace{0.1cm} \textrm{is convex} \iff x^T \nabla^2 F x \ge 0, \hspace{0.3cm} \forall x \in \mathbb{R}^n.
+\end{equation} 
+We note from equation \ref{full_Hdefn} that $H^{[l]}$ is PSD if and only if each $H_Z^{[l]}$ is. That $H_Z^{[l]}$ is PSD follows from induction on the number of layers counting backwards from the output layer $L$.
 $H_{Z}^{[L](i)}$ is PSD since,
 \begin{align}
 y^T H_{Z}^{[L](i)}y&=\frac{1}{m} \sum_p  X^{[L](i)}_p y_p^2 -(\sum_q X^{[L](i)}_p y_p)^2,\nonumber\\
 &=\frac{1}{m} \sum_p X^{[L](i)}_p(y_p-\sum_q X^{[L](i)}_q y_q)^2
 \end{align}
-The last expression is $\ge 0$ since $X^{[L](i)}_p \ge 0$.
+The last expression is $\ge 0$ since by equations \ref{XL_defn} and \ref{softmax}, $X^{[L](i)}_p \ge 0$.
 
 For the inductive step, assume the result holds at layer $l$. Then, from equations \ref{backprop_HX} and \ref{backprop_HZ}, we find for layer $l-1$,
 \begin{align} 
@@ -490,14 +498,21 @@ This occurs whenever,
 \end{equation} 
 and from equation \ref{backprop_dL_dZ}, 
 \begin{equation}
-\sgn{\left(\nabla \mathcal{L}^{[l-1](i)}_{X,j}\right)}= \sgn{\left(\nabla \mathcal{L}^{[l-1](i)}_{Z,j} \right)},
+\sgn{\left(\nabla \mathcal{L}^{[l-1](i)}_{X,j}\right)}= \sgn{\left(\nabla \mathcal{L}^{[l-1](i)}_{Z,j} \right)}.
 \end{equation}  
 \end{proof}
-Unfortunately, this cannot provide a simple recipe to enforce convexity on our Neural Network. To see this, recall we are back-propagating from $l=L$ to $1$, and currently updating at $l-1$. So, if we were to set, 
+Theorem \ref{thm:bigtheorem} can provide a means of enforcing convexity during back-propagation. 
+\begin{corollary}
+If equation \ref{convex_condition} fails to hold at layer $l$ for some $i$, $j$ then we can set,
 \begin{equation}
-\left(\nabla \mathcal{L}^{[l]}_{X}\right)_j^{(i)} = 0,
+\nabla \mathcal{L}^{[l](i)}_{Z,j} =0.
 \end{equation}
-as a means of enforcing convexity then this would require us to backtrack to the later layer $l$, only to then retrace our steps and this may lead to subsequent convexity failures once we return to $l-1$. However, it does provide a method for detecting when saddle-points occur during back-propagation, and this may have a use when trying to understanding poor convergence.
+\end{corollary}
+%Unfortunately, this cannot provide a simple recipe to enforce convexity on our Neural Network. To see this, recall we are back-propagating from $l=L$ to $1$, and currently updating at $l-1$. So, if we were to set, 
+%\begin{equation}
+%\left(\nabla \mathcal{L}^{[l]}_{X}\right)_j^{(i)} = 0,
+%\end{equation}
+%as a means of enforcing convexity then this would require us to backtrack to the later layer $l$, only to then retrace our steps and this may lead to subsequent convexity failures once we return to $l-1$. However, it does provide a method for detecting when saddle-points occur during back-propagation, and this may have a use when trying to understanding poor convergence.
 
 \section{Discussion}
 
