@@ -76,8 +76,7 @@
 \date{\today}
 
 \begin{abstract}
-I present an empirical study into the use of second-order solvers, L-BFGS and NLCG for training neural networks. Comparisons are made on the Fashion MNIST dataset and I show improved performance in terms of convergence and dev-accuracy over Gradient descent. Whilst L-BFGS and NLCG have a higher cost per iteration than gradient descent, being roughly twice that of gradient descent, the improvement in total training time might more than compensate for the increased iteration cost. I also present a sufficient condition, Theorem \ref{thm:bigtheorem}, for convexity of the loss-function during training. 
-
+I present an empirical study into the use of second-order solvers, L-BFGS and NLCG for training neural networks. Comparisons are made on the Fashion MNIST dataset and I show improved performance in terms of convergence and dev-accuracy over Gradient descent. Whilst L-BFGS and NLCG have a higher cost per iteration than gradient descent, being roughly twice that of gradient descent, the improvement in total training time might more than compensate for the increased iteration cost. I show that the use of stochastic sampling which is required for efficient training on a large dataset does harm the convergence of these solvers. As such, batches must be fixed throughout the training epochs. I also present a sufficient condition, Theorem \ref{thm:bigtheorem}, for convexity of the loss-function during training. I argue that this can incorporated into a Gauss-Newton scheme to determine effective preconditioning strategies for improving convergence during training. 
 \end{abstract}
 
 \section{Introduction}
@@ -462,31 +461,31 @@ If sigmoid activations are used at each hidden layer, and
 then the loss function is convex.
 \end{theorem}
 \begin{proof} 
-A result of the convex optimization literature states that an objective function is convex if and only if its Hessian is positive semi-definite (PSD) \citep[see][page 71]{Boyd:Vanden},
+A result of convex analysis states that an objective function, $f:\mathbb{R}^n \to \mathbb{R}$, is convex if and only if its Hessian is positive semi-definite (PSD), for details see appendix \ref{Convexity}, or page 71 of \citet{Boyd:Vanden},
 \begin{equation}
-F \hspace{0.1cm} \textrm{is convex} \iff x^T \nabla^2 F x \ge 0, \hspace{0.3cm} \forall x \in \mathbb{R}^n.
+f \hspace{0.1cm} \textrm{is convex} \iff \mathbf{x}^T \nabla^2 f \mathbf{x} \ge 0, \hspace{0.3cm} \forall \mathbf{x} \in \mathbb{R}^n.
 \end{equation} 
 We note from equation \ref{full_Hdefn} that $H^{[l]}$ is PSD if and only if each $H_Z^{[l]}$ is. That $H_Z^{[l]}$ is PSD follows from induction on the number of layers counting backwards from the output layer $L$.
 $H_{Z}^{[L](i)}$ is PSD since,
 \begin{align}
-y^T H_{Z}^{[L](i)}y&=\frac{1}{m} \sum_p  X^{[L](i)}_p y_p^2 -(\sum_q X^{[L](i)}_p y_p)^2,\nonumber\\
+\mathbf{y}^T H_{Z}^{[L](i)}\mathbf{y}&=\frac{1}{m} \sum_p  X^{[L](i)}_p y_p^2 -(\sum_q X^{[L](i)}_p y_p)^2,\nonumber\\
 &=\frac{1}{m} \sum_p X^{[L](i)}_p(y_p-\sum_q X^{[L](i)}_q y_q)^2
 \end{align}
-The last expression is $\ge 0$ since by equations \ref{XL_defn} and \ref{softmax}, $X^{[L](i)}_p \ge 0$.
+The last expression is $\ge 0$ since $X^{[L](i)}_p \ge 0$ (see equations \ref{XL_defn} and \ref{softmax}).
 
 For the inductive step, assume the result holds at layer $l$. Then, from equations \ref{backprop_HX} and \ref{backprop_HZ}, we find for layer $l-1$,
 \begin{align} 
- &y^T H_{Z}^{[l-1](i)}y=\nonumber\\
- &y^T \sigma'{(Z^{[l-1](i)})}\circ W^{T[l]} (H_Z^{[l](i)})W^{[l]}\circ \sigma'{(Z_{k'}^{[l-1](i)})} y\nonumber\\
- &+y^{T}\sigma''{(Z^{[l-1](i)})}\circ \left(\nabla \mathcal{L}^{[l-1](i)}_{X}\right) y.
+ &\mathbf{y}^T H_{Z}^{[l-1](i)}\mathbf{y}=\nonumber\\
+ &\mathbf{y}^T \sigma'{(Z^{[l-1](i)})}\circ W^{T[l]} (H_Z^{[l](i)})W^{[l]}\circ \sigma'{(Z_{k'}^{[l-1](i)})} \mathbf{y}\nonumber\\
+ &+\mathbf{y}^{T}\sigma''{(Z^{[l-1](i)})}\circ \left(\nabla \mathcal{L}^{[l-1](i)}_{X}\right) \mathbf{y}.
  \end{align}
 The first term in the sum on the right hand side is of the form,
 \begin{equation}
- y'^T  (H_Z^{[l](i)}) y',
+ \mathbf{y}'^T  (H_Z^{[l](i)}) \mathbf{y}',
  \end{equation}
 and by the inductive hypothesis,
 \begin{equation}
- y'^T  (H_Z^{[l](i)}) y' \ge 0.
+ \mathbf{y}'^T  (H_Z^{[l](i)}) \mathbf{y}' \ge 0.
  \end{equation} 
  The second term in the sum will also be positive whenever,
 \begin{equation}
@@ -508,6 +507,10 @@ If equation \ref{convex_condition} fails to hold at layer $l$ for some $i$, $j$ 
 \nabla \mathcal{L}^{[l](i)}_{Z,j} =0.
 \end{equation}
 \end{corollary}
+This says that we can find a convex approximate Hessian suitable as a preconditioner for training the Neural network by filtering the gradient, $\nabla \mathcal{L}_{Z}$, to zero whenever,  
+\begin{equation}
+\sgn{\left(Z^{[l]}\right)}\neq \sgn{\left(\nabla \mathcal{L}^{[l]}_{Z} \right)}.
+\end{equation}
 %Unfortunately, this cannot provide a simple recipe to enforce convexity on our Neural Network. To see this, recall we are back-propagating from $l=L$ to $1$, and currently updating at $l-1$. So, if we were to set, 
 %\begin{equation}
 %\left(\nabla \mathcal{L}^{[l]}_{X}\right)_j^{(i)} = 0,
@@ -817,6 +820,77 @@ Where the propagation starts from layer $L$ where,
 H_{Z,p,q}^{[L](i)}=\frac{1}{m} X^{[L](i)}_p\left(\delta_{p,q}-X^{[L](i)}_q \right)\label{H_Z_initial}.
 \end{equation}
 Equations \ref{full_Hdefn}, \ref{backprop_HX} and \ref{backprop_HZ} define an algorithm for back-propagating the Hessian from layer $L$ to $1$.
+\section{Convexity and positive semi-definiteness}\label{Convexity}
+For completeness we include a proof of the theorem,
+\begin{theorem}
+\label{thm:convexity}
+A smooth objective function $f$, $f:\mathbf{R}^n \to \mathbf{R}$ is convex if and only if its Hessian, $\nabla^2 f $, is positive semi-definite.
+\end{theorem}
+First, we will require a preparatory lemma,
+\begin{lemma}
+\label{prep_lemma}
+Let $f : \mathbf{R}^n \to \mathbf{R}$ and let $\mathcal{D} $ be a convex subset of $\mathbf{R}^n$. Then, $f$ is convex if and only if for
+any $\mathbf{x}, \mathbf{y} \in \mathcal{D}$ we have,
+\begin{equation}
+f(\mathbf{y}) \ge f(\mathbf{x}) + \nabla f(\mathbf{x})^T (\mathbf{y} - \mathbf{x}).
+\end{equation}
+\end{lemma}
+\begin{proof} 
+\begin{trivlist}
+\item{(only if) Let $\mathbf{z}=\lambda \mathbf{y} +(1-\lambda)\mathbf{x}$, for $\lambda \in [0,1]$, and assuming $f$ is convex, 
+\begin{equation}
+f(\mathbf{z})\le \lambda f(\mathbf{y}) +(1-\lambda)f(\mathbf{x}),
+\end{equation}
+and
+\begin{equation}
+f(\mathbf{z})-f(\mathbf{x})\le \lambda (f(\mathbf{y}) -f(\mathbf{x})).
+\end{equation}
+On the other hand,
+\begin{align}
+\nabla f(\mathbf{x})^T(\mathbf{y}-\mathbf{x})&=\lim_{h \to 0} \frac{f(\mathbf{x}+\lambda(\mathbf{y}-\mathbf{x}))-f(\mathbf{x})}{\lambda}=\lim_{h \to 0} \frac{f(\mathbf{z})-f(\mathbf{x})}{\lambda}\nonumber\\
+& \le f(\mathbf{y}) -f(\mathbf{x}).
+\end{align}
+}
+\item{(if)} Now we assume that,
+\begin{equation}
+f(\mathbf{y}) \ge f(x) + \nabla f(\mathbf{x})^T (\mathbf{y} - \mathbf{x}), \hspace{0.3cm} \forall \mathbf{x}, \mathbf{y} \in \mathcal{D}, \label{grad_bound}
+\end{equation}
+to show $f$ is convex, let $\mathbf{z}=\lambda \mathbf{y}+(1-\lambda)\mathbf{x}$, for $\lambda \in [0,1]$. Since $\mathcal{D}$ is convex, $z \in \mathcal{D}$, and using \ref{grad_bound} we have,
+\begin{align}
+f(\mathbf{y}) & \ge f(\mathbf{z}) + \nabla f(\mathbf{z})^T (\mathbf{y} - \mathbf{z}), \label{y_bound_z}\\
+f(\mathbf{x}) & \ge f(\mathbf{z}) + \nabla f(\mathbf{z})^T (\mathbf{x} - \mathbf{z}). \label{x_bound_z}
+\end{align}
+$\lambda \times$ (\ref{y_bound_z}) $+ (1-\lambda)\times $(\ref{x_bound_z})$\implies$
+\begin{equation}
+\lambda f(\mathbf{y})+(1-\lambda)f(\mathbf{x}) \ge f(\mathbf{z}).
+\end{equation}
+\end{trivlist}
+\end{proof}
+Now we are in a position to prove Theorem \ref{thm:convexity},
+\begin{proof}
+\begin{trivlist}
+\item{(only if) By the multivariate Taylor's theorem, $\exists z \in [\mathbf{x},\mathbf{y}]$,
+\begin{equation}
+f(\mathbf{y})=f(\mathbf{x})+ \nabla f^{T} (\mathbf{y}-\mathbf{x})+\frac{1}{2}(\mathbf{y}-\mathbf{x}) \nabla^2 f(\mathbf{z}) (\mathbf{y}-\mathbf{x}),
+\end{equation}
+and by positive-definiteness of $\nabla^2 f$,
+\begin{equation}
+f(\mathbf{y})\ge f(\mathbf{x})+ \nabla f^{T} (\mathbf{y}-\mathbf{x}).
+\end{equation}
+So, Lemma \ref{prep_lemma} $\implies$ $f$ is convex. 
+}
+\item{(if) Given $\mathbf{x} \in \mathcal{D}$ and an arbitrary direction $\mathbf{v} \in \mathbf{R}^n$, we can define the 1D function,
+\begin{equation}
+g(t)=f(\mathbf{x}+t\mathbf{v}),
+\end{equation}
+Clearly, $g$ is smooth and convex for all $t$ in some interval $[0,\epsilon]$ since $f$ is smooth and convex in $\mathcal{D}$. Further,
+\begin{equation}
+g''(t)=\mathbf{v}^T\nabla^2 f(\mathbf{x}+t\mathbf{v})\mathbf{v}.
+\end{equation}
+Since $g$ is a 1D convex function, $g''\ge 0$ for $t \in [0,\epsilon]$ and hence $\nabla^2 f$ is positive semi-definite.
+}
+\end{trivlist}
+\end{proof}
 %and the Hessian terms are,
 %\begin{align}
 %(H_W^{[l]})&=(X^{[l-1]}\otimes I)\cdot \Diag{(I \otimes H_Z^{[l]})}\cdot (X^{[l-1]}\otimes I)^{T},\\
